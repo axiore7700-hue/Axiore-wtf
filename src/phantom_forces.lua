@@ -1,9 +1,9 @@
 -- ============================================================
---  Axiore.wtf | Rivals
---  Auto-loaded via hub or standalone
---  Features: Silent Aim, ESP (Box+Skel+HP bar), Aimbot,
---            Speed/Jump Hack, Inf Jump, Anti-Stun, Crosshair
+--  Axiore.wtf | Phantom Forces
+--  GUI Version: Rayfield
 -- ============================================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
@@ -11,21 +11,22 @@ local UIS          = game:GetService("UserInputService")
 local Workspace    = game:GetService("Workspace")
 local Camera       = Workspace.CurrentCamera
 local LP           = Players.LocalPlayer
-local notify       = (_G.Hub and _G.Hub.Notify) or function() end
 
 -- ============================================================
--- CONFIG
+-- CONFIG STATE
 -- ============================================================
 local cfg = {
     silent_aim        = true,
-    silent_fov        = 125,
+    silent_fov        = 130,
     silent_part       = "Head",
     team_check        = true,
 
-    aimbot            = false,
-    aimbot_key        = Enum.KeyCode.Q,
+    no_recoil         = true,
+    no_spread         = true,
+
+    aimbot            = true,
     aimbot_fov        = 160,
-    aimbot_smooth     = 0.14,
+    aimbot_smooth     = 0.12,
     aimbot_part       = "Head",
 
     esp_enabled       = true,
@@ -34,22 +35,17 @@ local cfg = {
     esp_health        = true,
     esp_distance      = true,
     esp_skeletons     = true,
-    esp_max_dist      = 800,
-    esp_box_color     = Color3.fromRGB(0, 200, 255),
-    esp_skel_color    = Color3.fromRGB(0, 170, 255),
+    esp_max_dist      = 1500,
+    esp_box_color     = Color3.fromRGB(255, 80, 0),
+    esp_skel_color    = Color3.fromRGB(255, 150, 0),
     esp_name_color    = Color3.fromRGB(255, 255, 255),
     esp_enemy_only    = true,
 
-    speed_hack        = false,
-    speed_mult        = 1.6,
-    inf_jump          = true,
-    jump_power        = 60,
-
-    anti_stun         = true,
     crosshair         = true,
-    crosshair_size    = 11,
-    crosshair_color   = Color3.fromRGB(0, 200, 255),
+    crosshair_size    = 12,
+    crosshair_color   = Color3.fromRGB(255, 100, 0),
     crosshair_thick   = 1.5,
+    crosshair_dot     = true,
 }
 
 -- ============================================================
@@ -78,7 +74,7 @@ local function closest(fov)
 end
 
 -- ============================================================
--- SKELETON (R15)
+-- SKELETON BONES (R15)
 -- ============================================================
 local SKEL = {
     {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
@@ -91,7 +87,7 @@ local SKEL = {
 }
 
 -- ============================================================
--- ESP
+-- ESP (full Drawing API)
 -- ============================================================
 local esp = {}
 
@@ -107,14 +103,17 @@ end
 local function create_esp(plr)
     if plr==LP then return end
     local o = {}
-    o.top=newLine(cfg.esp_box_color) o.bot=newLine(cfg.esp_box_color)
-    o.left=newLine(cfg.esp_box_color) o.right=newLine(cfg.esp_box_color)
-    o.name=newText(cfg.esp_name_color,14)
-    o.info=newText(cfg.esp_name_color,13)
-    o.hpbg=newLine(Color3.fromRGB(40,40,40),3)
-    o.hpfill=newLine(Color3.fromRGB(60,255,60),2)
-    o.skel={} for i=1,#SKEL do o.skel[i]=newLine(cfg.esp_skel_color,1) end
-    esp[plr]=o
+    o.top    = newLine(cfg.esp_box_color)
+    o.bot    = newLine(cfg.esp_box_color)
+    o.left   = newLine(cfg.esp_box_color)
+    o.right  = newLine(cfg.esp_box_color)
+    o.name   = newText(cfg.esp_name_color, 14)
+    o.info   = newText(cfg.esp_name_color, 13)
+    o.hpbg   = newLine(Color3.fromRGB(40,40,40), 3)
+    o.hpfill = newLine(Color3.fromRGB(60,255,60), 2)
+    o.skel   = {}
+    for i=1,#SKEL do o.skel[i] = newLine(cfg.esp_skel_color, 1) end
+    esp[plr] = o
 end
 
 local function destroy_esp(plr)
@@ -160,85 +159,72 @@ oldNC = hookmetamethod(game, "__namecall", function(self, ...)
 end)
 
 -- ============================================================
--- INF JUMP
+-- NO RECOIL
 -- ============================================================
-UIS.JumpRequest:Connect(function()
-    if not cfg.inf_jump then return end
-    local c=getChar(LP) local h=getHum(c)
-    if h and h:GetState()~=Enum.HumanoidStateType.Dead then
-        h:ChangeState(Enum.HumanoidStateType.Jumping)
+local lastCF = Camera.CFrame
+local recoilConn = RunService.RenderStepped:Connect(function()
+    if cfg.no_recoil then
+        local cur = Camera.CFrame
+        local _,lp,_ = lastCF:ToEulerAnglesYXZ()
+        local _,cp,_ = cur:ToEulerAnglesYXZ()
+        local delta = cp - lp
+        if delta > 0.0008 then
+            Camera.CFrame = lastCF * CFrame.Angles(-delta, 0, 0)
+        end
     end
+    lastCF = Camera.CFrame
 end)
 
 -- ============================================================
--- SPEED + JUMP
--- ============================================================
-local BASE_SPEED = 16
-local function applyMove(char)
-    if not char then return end
-    local hum=getHum(char) if not hum then return end
-    local c
-    c = RunService.Heartbeat:Connect(function()
-        if not hum or not hum.Parent then c:Disconnect() return end
-        if _G.Hub and not _G.Hub.Running then c:Disconnect() return end
-        if cfg.speed_hack then hum.WalkSpeed=BASE_SPEED*cfg.speed_mult end
-        if cfg.inf_jump then hum.JumpPower=cfg.jump_power end
-    end)
-end
-applyMove(LP.Character)
-LP.CharacterAdded:Connect(function(c) task.wait(0.5) applyMove(c) end)
-
--- ============================================================
--- ANTI-STUN
--- ============================================================
-local function patchStun(char)
-    if not char then return end
-    local function kill(v)
-        if cfg.anti_stun and v.Name:lower():find("stun") then
-            pcall(function() v.Enabled=false end)
-        end
-    end
-    for _,v in ipairs(char:GetDescendants()) do kill(v) end
-    char.DescendantAdded:Connect(kill)
-end
-patchStun(LP.Character)
-LP.CharacterAdded:Connect(function(c) task.wait(0.3) patchStun(c) end)
-
--- ============================================================
--- AIMBOT
+-- AIMBOT (Right Click or Q)
 -- ============================================================
 local aimHeld = false
-UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==cfg.aimbot_key then aimHeld=true end end)
-UIS.InputEnded:Connect(function(i) if i.KeyCode==cfg.aimbot_key then aimHeld=false end end)
+UIS.InputBegan:Connect(function(i,g) if not g and (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=true end end)
+UIS.InputEnded:Connect(function(i) if (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=false end end)
 
 -- ============================================================
--- CROSSHAIR
+-- CROSSHAIR & FOV
 -- ============================================================
-local ch = {}
-local function mkCH()
-    for _,l in ipairs(ch) do l:Remove() end ch={}
+local crossLines = {}
+local crossDot = nil
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Thickness = 1
+fovCircle.Transparency = 0.5
+fovCircle.NumSides = 32
+
+local function mkCross()
+    for _,l in ipairs(crossLines) do l:Remove() end crossLines={}
+    if crossDot then crossDot:Remove() crossDot=nil end
     if not cfg.crosshair then return end
     for i=1,4 do
         local l=Drawing.new("Line") l.Thickness=cfg.crosshair_thick
-        l.Color=cfg.crosshair_color l.Transparency=1 l.Visible=true ch[i]=l
+        l.Color=cfg.crosshair_color l.Transparency=1 l.Visible=true crossLines[i]=l
+    end
+    if cfg.crosshair_dot then
+        crossDot=Drawing.new("Circle") crossDot.Radius=2 crossDot.Filled=true
+        crossDot.Color=cfg.crosshair_color crossDot.Transparency=1 crossDot.NumSides=8
+        crossDot.Visible=true
     end
 end
-mkCH()
+mkCross()
 
 -- ============================================================
 -- MAIN LOOP
 -- ============================================================
 local conn
 conn = RunService.RenderStepped:Connect(function()
-    if _G.Hub and not _G.Hub.Running then
-        conn:Disconnect()
+    if _G.Hub and _G.Hub.Running == false then
+        conn:Disconnect() recoilConn:Disconnect()
         for _,o in pairs(esp) do
             for k,v in pairs(o) do
                 if type(v)=="table" then for _,l in ipairs(v) do l:Remove() end
                 elseif v.Remove then v:Remove() end
             end
         end
-        for _,l in ipairs(ch) do l:Remove() end
+        for _,l in ipairs(crossLines) do l:Remove() end
+        if crossDot then crossDot:Remove() end
+        fovCircle:Remove()
         return
     end
 
@@ -246,27 +232,34 @@ conn = RunService.RenderStepped:Connect(function()
     local cx,cy = vp.X/2, vp.Y/2
     local myRoot = getRoot(getChar(LP))
 
+    fovCircle.Position = Vector2.new(cx, cy)
+    fovCircle.Radius = math.max(cfg.silent_fov, cfg.aimbot_fov)
+    fovCircle.Visible = cfg.silent_aim or cfg.aimbot
+
     -- ---- ESP ----
     for plr,o in pairs(esp) do
         local ok = cfg.esp_enabled and alive(plr) and (not cfg.esp_enemy_only or enemy(plr))
-        local char = getChar(plr)
-        local root = getRoot(char)
-        if not ok or not char or not root then hide_esp(o) continue end
+        local ch = getChar(plr)
+        local root = getRoot(ch)
+
+        if not ok or not ch or not root then hide_esp(o) continue end
 
         local dist = myRoot and (myRoot.Position - root.Position).Magnitude or 0
         if dist > cfg.esp_max_dist then hide_esp(o) continue end
 
-        local head = char:FindFirstChild("Head")
+        local head = ch:FindFirstChild("Head")
         if not head then hide_esp(o) continue end
 
         local rootSP, rootOn = w2s(root.Position)
         local headSP, headOn = w2s(head.Position + Vector3.new(0,1,0))
         if not rootOn or not headOn then hide_esp(o) continue end
 
+        local h = math.abs(rootSP.Y - headSP.Y)
+        local w = h * 0.55
         local topY = headSP.Y
         local botY = rootSP.Y + 5
-        local h = botY - topY
-        local w = h * 0.55
+        h = botY - topY
+        w = h * 0.55
         local midX = (headSP.X + rootSP.X) / 2
         local x1,x2,y1,y2 = midX-w/2, midX+w/2, topY, botY
 
@@ -282,7 +275,7 @@ conn = RunService.RenderStepped:Connect(function()
         -- Skeleton
         if cfg.esp_skeletons then
             for i,pair in ipairs(SKEL) do
-                local p1=char:FindFirstChild(pair[1]) local p2=char:FindFirstChild(pair[2])
+                local p1=ch:FindFirstChild(pair[1]) local p2=ch:FindFirstChild(pair[2])
                 if p1 and p2 then
                     local s1,o1=w2s(p1.Position) local s2,o2=w2s(p2.Position)
                     if o1 and o2 then
@@ -298,17 +291,17 @@ conn = RunService.RenderStepped:Connect(function()
             o.name.Color=cfg.esp_name_color o.name.Visible=true
         else o.name.Visible=false end
 
-        -- Health + dist
-        local hum=getHum(char)
-        local hp=hum and math.floor(hum.Health) or 0
-        local mhp=hum and math.floor(hum.MaxHealth) or 100
-        local ratio=math.clamp(hp/math.max(mhp,1),0,1)
+        -- Health
+        local hum = getHum(ch)
+        local hp = hum and math.floor(hum.Health) or 0
+        local mhp = hum and math.floor(hum.MaxHealth) or 100
+        local ratio = math.clamp(hp/math.max(mhp,1), 0, 1)
 
         if cfg.esp_health or cfg.esp_distance then
             local txt=""
             if cfg.esp_health then txt=hp.."/"..mhp end
             if cfg.esp_distance then txt=txt.." ["..math.floor(dist).."m]" end
-            o.info.Position=Vector2.new(midX,y2+2) o.info.Text=txt
+            o.info.Position=Vector2.new(midX, y2+2) o.info.Text=txt
             o.info.Color=Color3.fromRGB(math.floor(255*(1-ratio)),math.floor(255*ratio),0)
             o.info.Visible=true
         else o.info.Visible=false end
@@ -338,15 +331,55 @@ conn = RunService.RenderStepped:Connect(function()
     end
 
     -- ---- CROSSHAIR ----
-    if cfg.crosshair and #ch==4 then
+    if cfg.crosshair and #crossLines==4 then
         local s=cfg.crosshair_size
-        ch[1].From=Vector2.new(cx-s,cy) ch[1].To=Vector2.new(cx-4,cy)
-        ch[2].From=Vector2.new(cx+4,cy) ch[2].To=Vector2.new(cx+s,cy)
-        ch[3].From=Vector2.new(cx,cy-s) ch[3].To=Vector2.new(cx,cy-4)
-        ch[4].From=Vector2.new(cx,cy+4) ch[4].To=Vector2.new(cx,cy+s)
-        for _,l in ipairs(ch) do l.Color=cfg.crosshair_color l.Thickness=cfg.crosshair_thick l.Visible=true end
+        crossLines[1].From=Vector2.new(cx-s,cy) crossLines[1].To=Vector2.new(cx-4,cy)
+        crossLines[2].From=Vector2.new(cx+4,cy) crossLines[2].To=Vector2.new(cx+s,cy)
+        crossLines[3].From=Vector2.new(cx,cy-s) crossLines[3].To=Vector2.new(cx,cy-4)
+        crossLines[4].From=Vector2.new(cx,cy+4) crossLines[4].To=Vector2.new(cx,cy+s)
+        for _,l in ipairs(crossLines) do l.Color=cfg.crosshair_color l.Thickness=cfg.crosshair_thick l.Visible=true end
+        if crossDot then crossDot.Position=Vector2.new(cx,cy) crossDot.Color=cfg.crosshair_color crossDot.Visible=true end
+    else
+        for _,l in ipairs(crossLines) do l.Visible=false end
+        if crossDot then crossDot.Visible=false end
     end
 end)
 
-notify("Rivals", "Loaded ✓ | Q=Aimbot | Speed: " .. (cfg.speed_hack and "ON" or "OFF"), 5)
-return cfg
+-- ============================================================
+-- GUI (RAYFIELD)
+-- ============================================================
+local Window = Rayfield:CreateWindow({
+   Name = "Axiore.wtf - Phantom Forces",
+   LoadingTitle = "Axiore.wtf",
+   LoadingSubtitle = "by cook45 x clack",
+   Theme = "DarkBlue", 
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false
+})
+
+local TabAimbot = Window:CreateTab("Aimbot", 4483362458)
+TabAimbot:CreateToggle({ Name = "Silent Aim", CurrentValue = cfg.silent_aim, Callback = function(v) cfg.silent_aim = v end })
+TabAimbot:CreateToggle({ Name = "Aimbot (Hold Right Click or Q)", CurrentValue = cfg.aimbot, Callback = function(v) cfg.aimbot = v end })
+TabAimbot:CreateSlider({ Name = "Silent Aim FOV", Range = {10, 500}, Increment = 1, CurrentValue = cfg.silent_fov, Callback = function(v) cfg.silent_fov = v end })
+TabAimbot:CreateSlider({ Name = "Aimbot FOV", Range = {10, 500}, Increment = 1, CurrentValue = cfg.aimbot_fov, Callback = function(v) cfg.aimbot_fov = v end })
+
+local TabCombat = Window:CreateTab("Gun Mods", 4483362458)
+TabCombat:CreateToggle({ Name = "No Recoil", CurrentValue = cfg.no_recoil, Callback = function(v) cfg.no_recoil = v end })
+TabCombat:CreateToggle({ Name = "No Spread (Visual)", CurrentValue = cfg.no_spread, Callback = function(v) cfg.no_spread = v end })
+
+local TabESP = Window:CreateTab("Visuals", 4483362458)
+TabESP:CreateToggle({ Name="ESP Enabled", CurrentValue=cfg.esp_enabled, Callback=function(v) cfg.esp_enabled=v end })
+TabESP:CreateToggle({ Name="Draw Boxes", CurrentValue=cfg.esp_boxes, Callback=function(v) cfg.esp_boxes=v end })
+TabESP:CreateToggle({ Name="Draw Skeletons", CurrentValue=cfg.esp_skeletons, Callback=function(v) cfg.esp_skeletons=v end })
+TabESP:CreateToggle({ Name="Draw Names", CurrentValue=cfg.esp_names, Callback=function(v) cfg.esp_names=v end })
+TabESP:CreateToggle({ Name="Draw Health", CurrentValue=cfg.esp_health, Callback=function(v) cfg.esp_health=v end })
+
+local TabMisc = Window:CreateTab("Misc", 4483362458)
+TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v mkCross() end })
+
+Rayfield:Notify({
+    Title = "Axiore.wtf Loaded",
+    Content = "Press RightCtrl to toggle menu.",
+    Duration = 5,
+    Image = 4483362458,
+})

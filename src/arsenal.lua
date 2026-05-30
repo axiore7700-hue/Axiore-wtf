@@ -1,9 +1,9 @@
 -- ============================================================
 --  Axiore.wtf | Arsenal
---  Auto-loaded via hub or standalone
---  Features: Silent Aim, ESP, Aimbot, Inf Jump,
---            Anti-Ragdoll, Crosshair
+--  GUI Version: Rayfield
 -- ============================================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
@@ -11,18 +11,16 @@ local UIS          = game:GetService("UserInputService")
 local Workspace    = game:GetService("Workspace")
 local Camera       = Workspace.CurrentCamera
 local LP           = Players.LocalPlayer
-local notify       = (_G.Hub and _G.Hub.Notify) or function() end
 
 -- ============================================================
--- CONFIG
+-- CONFIG STATE
 -- ============================================================
 local cfg = {
     silent_aim        = true,
     silent_fov        = 120,
     silent_part       = "Head",
 
-    aimbot            = false,
-    aimbot_key        = Enum.KeyCode.Q,
+    aimbot            = true,
     aimbot_fov        = 150,
     aimbot_smooth     = 0.15,
     aimbot_part       = "Head",
@@ -72,7 +70,7 @@ local function closest(fov)
 end
 
 -- ============================================================
--- ESP (Drawing API — screen-space boxes)
+-- ESP CORE
 -- ============================================================
 local esp = {}
 
@@ -94,7 +92,6 @@ local function create_esp(plr)
     o.right  = newLine(cfg.esp_box_color)
     o.name   = newText(cfg.esp_name_color, 14)
     o.info   = newText(Color3.fromRGB(60,255,60), 13)
-    -- Health bar (2 lines: bg + fill)
     o.hpbg   = newLine(Color3.fromRGB(40,40,40), 3)
     o.hpfill = newLine(Color3.fromRGB(60,255,60), 2)
     esp[plr] = o
@@ -138,11 +135,11 @@ oldNC = hookmetamethod(game, "__namecall", function(self, ...)
 end)
 
 -- ============================================================
--- AIMBOT
+-- AIMBOT (Right Click or Q)
 -- ============================================================
 local aimHeld = false
-UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==cfg.aimbot_key then aimHeld=true end end)
-UIS.InputEnded:Connect(function(i) if i.KeyCode==cfg.aimbot_key then aimHeld=false end end)
+UIS.InputBegan:Connect(function(i,g) if not g and (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=true end end)
+UIS.InputEnded:Connect(function(i) if (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=false end end)
 
 -- ============================================================
 -- INF JUMP
@@ -172,9 +169,15 @@ patchRag(LP.Character)
 LP.CharacterAdded:Connect(function(c) task.wait(0.5) patchRag(c) end)
 
 -- ============================================================
--- CROSSHAIR
+-- CROSSHAIR & FOV CIRCLE
 -- ============================================================
 local ch = {}
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Thickness = 1
+fovCircle.Transparency = 0.5
+fovCircle.NumSides = 32
+
 local function mkCH()
     for _,l in ipairs(ch) do l:Remove() end ch={}
     if not cfg.crosshair then return end
@@ -186,14 +189,15 @@ end
 mkCH()
 
 -- ============================================================
--- MAIN LOOP
+-- MAIN RENDER LOOP
 -- ============================================================
 local conn
 conn = RunService.RenderStepped:Connect(function()
-    if _G.Hub and not _G.Hub.Running then
+    if _G.Hub and _G.Hub.Running == false then
         conn:Disconnect()
         for _,o in pairs(esp) do for _,v in pairs(o) do if v.Remove then v:Remove() end end end
         for _,l in ipairs(ch) do l:Remove() end
+        fovCircle:Remove()
         return
     end
 
@@ -201,6 +205,11 @@ conn = RunService.RenderStepped:Connect(function()
     local cx, cy = vp.X/2, vp.Y/2
     local myChar = getChar(LP)
     local myRoot = getRoot(myChar)
+
+    -- FOV Circle
+    fovCircle.Position = Vector2.new(cx, cy)
+    fovCircle.Radius = math.max(cfg.silent_fov, cfg.aimbot_fov)
+    fovCircle.Visible = cfg.silent_aim or cfg.aimbot
 
     -- ---- ESP ----
     for plr, o in pairs(esp) do
@@ -213,7 +222,6 @@ conn = RunService.RenderStepped:Connect(function()
         local dist = myRoot and (myRoot.Position - root.Position).Magnitude or 0
         if dist > cfg.esp_max_dist then hide_esp(o) continue end
 
-        -- Calculate screen bounding box from head + root
         local head = ch2:FindFirstChild("Head")
         if not head then hide_esp(o) continue end
 
@@ -270,7 +278,7 @@ conn = RunService.RenderStepped:Connect(function()
             o.info.Visible  = true
         else o.info.Visible = false end
 
-        -- Health bar (left side)
+        -- Health bar
         if cfg.esp_health then
             o.hpbg.From   = Vector2.new(x1-5, y2)  o.hpbg.To   = Vector2.new(x1-5, y1)
             o.hpbg.Visible = true
@@ -304,8 +312,69 @@ conn = RunService.RenderStepped:Connect(function()
         ch[3].From=Vector2.new(cx,cy-s) ch[3].To=Vector2.new(cx,cy-3)
         ch[4].From=Vector2.new(cx,cy+3) ch[4].To=Vector2.new(cx,cy+s)
         for _,l in ipairs(ch) do l.Color=cfg.crosshair_color l.Thickness=cfg.crosshair_thick l.Visible=true end
+    else
+        for _,l in ipairs(ch) do l.Visible=false end
     end
 end)
 
-notify("Arsenal", "Loaded ✓ | Q=Aimbot | Silent Aim ON", 5)
-return cfg
+-- ============================================================
+-- GUI (RAYFIELD)
+-- ============================================================
+local Window = Rayfield:CreateWindow({
+   Name = "Axiore.wtf - Arsenal",
+   LoadingTitle = "Axiore.wtf",
+   LoadingSubtitle = "by cook45 x clack",
+   Theme = "DarkBlue", 
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false
+})
+
+local TabAimbot = Window:CreateTab("Aimbot", 4483362458)
+TabAimbot:CreateToggle({
+   Name = "Silent Aim",
+   CurrentValue = cfg.silent_aim,
+   Flag = "SilentAim", 
+   Callback = function(Value) cfg.silent_aim = Value end,
+})
+TabAimbot:CreateToggle({
+   Name = "Aimbot (Hold Right Click or Q)",
+   CurrentValue = cfg.aimbot,
+   Flag = "Aimbot", 
+   Callback = function(Value) cfg.aimbot = Value end,
+})
+TabAimbot:CreateSlider({
+   Name = "Silent Aim FOV",
+   Range = {10, 500},
+   Increment = 1,
+   CurrentValue = cfg.silent_fov,
+   Flag = "SilentFOV",
+   Callback = function(Value) cfg.silent_fov = Value end,
+})
+TabAimbot:CreateSlider({
+   Name = "Aimbot FOV",
+   Range = {10, 500},
+   Increment = 1,
+   CurrentValue = cfg.aimbot_fov,
+   Flag = "AimbotFOV",
+   Callback = function(Value) cfg.aimbot_fov = Value end,
+})
+
+local TabESP = Window:CreateTab("Visuals", 4483362458)
+TabESP:CreateToggle({ Name="ESP Enabled", CurrentValue=cfg.esp_enabled, Callback=function(v) cfg.esp_enabled=v end })
+TabESP:CreateToggle({ Name="Draw Boxes", CurrentValue=cfg.esp_boxes, Callback=function(v) cfg.esp_boxes=v end })
+TabESP:CreateToggle({ Name="Draw Names", CurrentValue=cfg.esp_names, Callback=function(v) cfg.esp_names=v end })
+TabESP:CreateToggle({ Name="Draw Health", CurrentValue=cfg.esp_health, Callback=function(v) cfg.esp_health=v end })
+TabESP:CreateToggle({ Name="Draw Distance", CurrentValue=cfg.esp_distance, Callback=function(v) cfg.esp_distance=v end })
+TabESP:CreateToggle({ Name="Enemy Only", CurrentValue=cfg.esp_enemy_only, Callback=function(v) cfg.esp_enemy_only=v end })
+
+local TabMisc = Window:CreateTab("Misc", 4483362458)
+TabMisc:CreateToggle({ Name="Infinite Jump", CurrentValue=cfg.inf_jump, Callback=function(v) cfg.inf_jump=v end })
+TabMisc:CreateToggle({ Name="Anti-Ragdoll", CurrentValue=cfg.anti_ragdoll, Callback=function(v) cfg.anti_ragdoll=v end })
+TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v mkCH() end })
+
+Rayfield:Notify({
+    Title = "Axiore.wtf Loaded",
+    Content = "Press RightCtrl to toggle menu.",
+    Duration = 5,
+    Image = 4483362458,
+})
