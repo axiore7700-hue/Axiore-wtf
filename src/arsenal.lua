@@ -21,6 +21,7 @@ local cfg = {
     silent_part       = "Head",
 
     aimbot            = true,
+    aimbot_key        = Enum.KeyCode.Q,
     aimbot_fov        = 150,
     aimbot_smooth     = 0.15,
     aimbot_part       = "Head",
@@ -119,14 +120,22 @@ oldNC = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
 
-    if cfg.silent_aim and method == "FireServer" then
+    if cfg.silent_aim then
         local t = closest(cfg.silent_fov)
         if t then
-            local ch=getChar(t) local pt=ch and ch:FindFirstChild(cfg.silent_part)
+            local ch = getChar(t)
+            local pt = ch and ch:FindFirstChild(cfg.silent_part)
             if pt then
-                for i,v in ipairs(args) do
-                    if typeof(v)=="Vector3" then args[i]=pt.Position break end
-                    if typeof(v)=="CFrame"  then args[i]=CFrame.new(pt.Position) break end
+                if method == "Raycast" then
+                    local origin = args[1]
+                    local dir = (pt.Position - origin).Unit * 1000
+                    args[2] = dir
+                    return oldNC(self, table.unpack(args))
+                elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
+                    local ray = args[1]
+                    local newRay = Ray.new(ray.Origin, (pt.Position - ray.Origin).Unit * 1000)
+                    args[1] = newRay
+                    return oldNC(self, table.unpack(args))
                 end
             end
         end
@@ -138,17 +147,18 @@ end)
 -- AIMBOT (Right Click or Q)
 -- ============================================================
 local aimHeld = false
-UIS.InputBegan:Connect(function(i,g) if not g and (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=true end end)
-UIS.InputEnded:Connect(function(i) if (i.KeyCode==Enum.KeyCode.Q or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=false end end)
+UIS.InputBegan:Connect(function(i,g) if not g and (i.KeyCode==cfg.aimbot_key or i.UserInputType==cfg.aimbot_key or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=true end end)
+UIS.InputEnded:Connect(function(i) if (i.KeyCode==cfg.aimbot_key or i.UserInputType==cfg.aimbot_key or i.UserInputType==Enum.UserInputType.MouseButton2) then aimHeld=false end end)
 
 -- ============================================================
 -- INF JUMP
 -- ============================================================
 UIS.JumpRequest:Connect(function()
-    if not cfg.inf_jump then return end
-    local c=getChar(LP) local h=getHum(c)
-    if h and h:GetState()~=Enum.HumanoidStateType.Dead then
-        h:ChangeState(Enum.HumanoidStateType.Jumping)
+    if cfg.inf_jump then
+        local c=getChar(LP) local r=getRoot(c)
+        if r then
+            r.Velocity = Vector3.new(r.Velocity.X, 50, r.Velocity.Z)
+        end
     end
 end)
 
@@ -337,10 +347,19 @@ TabAimbot:CreateToggle({
    Callback = function(Value) cfg.silent_aim = Value end,
 })
 TabAimbot:CreateToggle({
-   Name = "Aimbot (Hold Right Click or Q)",
+   Name = "Aimbot Enabled",
    CurrentValue = cfg.aimbot,
    Flag = "Aimbot", 
    Callback = function(Value) cfg.aimbot = Value end,
+})
+TabAimbot:CreateKeybind({
+   Name = "Aimbot Key",
+   CurrentKeybind = "Q",
+   HoldToInteract = false,
+   Flag = "AimbotKey",
+   Callback = function(Keybind)
+       cfg.aimbot_key = Keybind
+   end,
 })
 TabAimbot:CreateSlider({
    Name = "Silent Aim FOV",
@@ -357,6 +376,14 @@ TabAimbot:CreateSlider({
    CurrentValue = cfg.aimbot_fov,
    Flag = "AimbotFOV",
    Callback = function(Value) cfg.aimbot_fov = Value end,
+})
+TabAimbot:CreateSlider({
+   Name = "Aimbot Smoothness",
+   Range = {1, 100},
+   Increment = 1,
+   CurrentValue = cfg.aimbot_smooth * 100,
+   Flag = "AimbotSmooth",
+   Callback = function(Value) cfg.aimbot_smooth = Value / 100 end,
 })
 
 local TabESP = Window:CreateTab("Visuals", 4483362458)
