@@ -375,7 +375,7 @@ TabESP:CreateToggle({ Name="Draw Names", CurrentValue=cfg.esp_names, Callback=fu
 TabESP:CreateToggle({ Name="Draw Health", CurrentValue=cfg.esp_health, Callback=function(v) cfg.esp_health=v end })
 
 local TabMisc = Window:CreateTab("Misc", 4483362458)
-TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v mkCross() end })
+TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v; mkCross() end })
 
 Rayfield:Notify({
     Title = "Axiore.wtf Loaded",

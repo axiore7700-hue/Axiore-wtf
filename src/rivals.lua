@@ -270,7 +270,7 @@ TabMovement:CreateSlider({ Name="Jump Power", Range={50,200}, Increment=1, Curre
 TabMovement:CreateToggle({ Name="Anti-Stun", CurrentValue=cfg.anti_stun, Callback=function(v) cfg.anti_stun=v end })
 
 local TabMisc = Window:CreateTab("Misc", 4483362458)
-TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v mkCH() end })
+TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v; mkCH() end })
 
 Rayfield:Notify({
     Title = "Axiore.wtf Loaded",

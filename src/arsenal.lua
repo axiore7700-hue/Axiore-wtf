@@ -397,7 +397,7 @@ TabESP:CreateToggle({ Name="Enemy Only", CurrentValue=cfg.esp_enemy_only, Callba
 local TabMisc = Window:CreateTab("Misc", 4483362458)
 TabMisc:CreateToggle({ Name="Infinite Jump", CurrentValue=cfg.inf_jump, Callback=function(v) cfg.inf_jump=v end })
 TabMisc:CreateToggle({ Name="Anti-Ragdoll", CurrentValue=cfg.anti_ragdoll, Callback=function(v) cfg.anti_ragdoll=v end })
-TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v mkCH() end })
+TabMisc:CreateToggle({ Name="Draw Crosshair", CurrentValue=cfg.crosshair, Callback=function(v) cfg.crosshair=v; mkCH() end })
 
 Rayfield:Notify({
     Title = "Axiore.wtf Loaded",
