@@ -141,6 +141,8 @@ for _,p in ipairs(Players:GetPlayers()) do create_esp(p) end
 -- ============================================================
 local oldNC
 oldNC = hookmetamethod(game, "__namecall", function(self, ...)
+    if checkcaller() then return oldNC(self, ...) end
+    
     local method = getnamecallmethod()
     local args = {...}
     if cfg.silent_aim and method == "FireServer" then
